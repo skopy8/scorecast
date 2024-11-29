@@ -37,9 +37,11 @@ def find_features(home_team, away_team, round, time):
     latest_match_home = df[df['home_team'] == home_team].sort_values(by='date', ascending=False).head(1)
     latest_match_away = df[df['away_team'] == away_team].sort_values(by='date', ascending=False).head(1)
     home_columns = latest_match_home[['home_team_code','home_goals_rolling_avg','home_conceded_goals_rolling_avg','home_shots_rolling_avg',
-              'home_shots_on_goal_rolling_avg','home_target_ratio_rolling_avg']]
+                                    'home_shots_on_goal_rolling_avg','home_target_ratio_rolling_avg'
+                                    ,'home_danger_ratio','home_shot_efficiency']]
     away_columns = latest_match_away[['away_team_code','away_goals_rolling_avg','away_conceded_goals_rolling_avg',
-                                      'away_shots_rolling_avg','away_shots_on_goal_rolling_avg','away_conversion_rate_rolling_avg','away_target_ratio_rolling_avg']]
+                                    'away_shots_rolling_avg','away_shots_on_goal_rolling_avg','away_conversion_rate_rolling_avg','away_target_ratio_rolling_avg'
+                                    ,'away_danger_ratio','away_shot_efficiency']]
     features = pd.concat([home_columns.reset_index(drop=True), away_columns.reset_index(drop=True)], axis=1)
     features['round'] = round
     features['time'] = time
@@ -56,7 +58,8 @@ feature_columns = ['round', 'time', 'home_team_code', 'away_team_code',
        'home_target_ratio_rolling_avg', 'away_goals_rolling_avg',
        'away_conceded_goals_rolling_avg', 'away_shots_rolling_avg',
        'away_shots_on_goal_rolling_avg', 'away_conversion_rate_rolling_avg',
-       'away_target_ratio_rolling_avg']
+       'away_target_ratio_rolling_avg',
+       'home_danger_ratio','home_shot_efficiency','away_danger_ratio','away_shot_efficiency']
 features = find_features(team1,team2,round,time)
 input_data = features[feature_columns]
 # Reshape the input data into the required format for the model
