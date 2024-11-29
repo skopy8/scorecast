@@ -30,6 +30,8 @@ time = int(time.split(':')[0])
 
 
 #################################################features alert
+#incomplete read below pls tyvm
+# note to self try and find the row where the team stats for rolling averages are on for the inputted round as well as time
 # Function to find rolling averages and other features for the input teams  change
 def find_features(home_team, away_team, round, time):
     df = pd.read_json('data/pl_data_dt.json')
