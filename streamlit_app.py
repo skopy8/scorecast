@@ -10,7 +10,7 @@ st.write("Predict the outcome of soccer matches based on team stats and form.")
 
 # Load the trained model
 loaded_model = pickle.load(open('model/trained_model_52.sav', 'rb'))
-
+loaded_goal_model = pickle.load(open('model/trained_model_goal.sav','rb'))
 # Team options for the dropdown
 options = ['Burnley', 'Sheffield Utd', 'Everton', 'Brighton', 'Bournemouth', 'Newcastle',
            'Brentford', 'Chelsea', 'Manchester Utd', 'Arsenal', 'Luton', 'Crystal Palace',
@@ -18,13 +18,15 @@ options = ['Burnley', 'Sheffield Utd', 'Everton', 'Brighton', 'Bournemouth', 'Ne
            'Nottingham', 'Manchester City', 'Leeds', 'Leicester', 'Southampton',
            'Watford', 'Norwich', 'Huddersfield', 'Cardiff', 'West Brom', 'Stoke',
            'Swansea', 'Hull', 'Middlesbrough', 'Sunderland', 'QPR']
-round_list = ['1','2','3','4','5'] #theres 38 rounds im too lazy to do em all for now
-time_list = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00',]
-# Get input from the user
+round_list = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30'] #theres 38 rounds im too lazy to do em all for now
+time_list = ['12:30','14:00','15:00','16:30','17:30',]
+# Select Away Team first
 team1 = st.selectbox("Select Home Team", options)
-team2 = st.selectbox("Select Away Team", options)
-round = st.selectbox("round", round_list)
-time = st.selectbox("time, in xx:xx format, disregard the minutes", time_list)
+team2_options = [team for team in options if team != team1]  # Exclude selected team1
+team2 = st.selectbox("Select Away Team", team2_options)
+
+round = int(st.selectbox("round", round_list))
+time = st.selectbox("time", time_list)
 
 time = int(time.split(':')[0])
 
@@ -40,7 +42,7 @@ def find_features(home_team, away_team, round, time):
     latest_match_away = df[df['away_team'] == away_team].sort_values(by='date', ascending=False).head(1)
     home_columns = latest_match_home[['home_team_code','home_goals_rolling_avg','home_conceded_goals_rolling_avg','home_shots_rolling_avg',
                                     'home_shots_on_goal_rolling_avg','home_target_ratio_rolling_avg'
-                                    ,'home_danger_ratio','home_shot_efficiency']]
+                                    ,'home_danger_ratio','home_shot_efficiency','home_conversion_rate_rolling_avg']]
     away_columns = latest_match_away[['away_team_code','away_goals_rolling_avg','away_conceded_goals_rolling_avg',
                                     'away_shots_rolling_avg','away_shots_on_goal_rolling_avg','away_conversion_rate_rolling_avg','away_target_ratio_rolling_avg'
                                     ,'away_danger_ratio','away_shot_efficiency']]
@@ -52,23 +54,44 @@ def find_features(home_team, away_team, round, time):
 # Collect features for both teams
 
 
-# Prepare input data for the model ()
+# Prepare input data for the model () redo model with correct corresponding features
 #reorder columns ############################ features alert
 feature_columns = ['round', 'time', 'home_team_code', 'away_team_code',
-       'home_goals_rolling_avg', 'home_conceded_goals_rolling_avg',
-       'home_shots_rolling_avg', 'home_shots_on_goal_rolling_avg',
-       'home_target_ratio_rolling_avg', 'away_goals_rolling_avg',
-       'away_conceded_goals_rolling_avg', 'away_shots_rolling_avg',
-       'away_shots_on_goal_rolling_avg', 'away_conversion_rate_rolling_avg',
+        'home_goals_rolling_avg',
+        'home_conceded_goals_rolling_avg',
+        'home_shots_rolling_avg',
+        'home_shots_on_goal_rolling_avg',
+        'home_target_ratio_rolling_avg', 
+        'home_conversion_rate_rolling_avg',
+       'away_goals_rolling_avg',
+       'away_conceded_goals_rolling_avg', 
+       'away_shots_rolling_avg',
+       'away_shots_on_goal_rolling_avg', 
+       'away_conversion_rate_rolling_avg',
        'away_target_ratio_rolling_avg',
        'home_danger_ratio','home_shot_efficiency','away_danger_ratio','away_shot_efficiency']
+
+goal_features_home = ['home_shots_rolling_avg','home_shots_on_goal_rolling_avg', 
+
+                    'home_target_ratio_rolling_avg',
+                    'home_conversion_rate_rolling_avg',
+                    'home_target_ratio_rolling_avg',
+                    'home_shots_on_goal_rolling_avg']
+goal_features_away = ['away_shots_rolling_avg','away_shots_on_goal_rolling_avg',
+                      
+                    'away_target_ratio_rolling_avg',
+                    'away_conversion_rate_rolling_avg',
+                    'away_target_ratio_rolling_avg',
+                    'away_shots_on_goal_rolling_avg']
 features = find_features(team1,team2,round,time)
 input_data = features[feature_columns]
+input_data_goals_home = features[goal_features_home]
+input_data_goals_away = features[goal_features_away]
 # Reshape the input data into the required format for the model
 #input_data = np.array(input_data).reshape(1, -1)
 
 # Use the model to make predictions
-if st.button("Predict"):
+if st.button("Predict Match Win"):
     try:
         prediction = loaded_model.predict(input_data)
         #st.write(input_data)
@@ -79,6 +102,28 @@ if st.button("Predict"):
         elif prediction[0] == 2:
             st.write("Prediction: Away Win")
         else:
-            st.write("Prediction: Draw")
+            st.write("Prediction: Inconclusive, not enough matches at this time to determine")
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
+
+if st.button("Predict goals scored for Home Team"):
+    try:
+        prediction = loaded_goal_model.predict(input_data_goals_home)
+        #st.write(input_data)
+        #st.write(prediction)
+        # Display prediction result     1 win 2 away win, 0 draw
+        st.write(prediction)
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+
+if st.button("Predict goals scored for Away Team"):
+    try:
+        prediction = loaded_goal_model.predict(input_data_goals_away)
+        #st.write(input_data)
+        #st.write(prediction)
+        # Display prediction result     1 win 2 away win, 0 draw
+        st.write(prediction)
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+
+#away team not done yet
