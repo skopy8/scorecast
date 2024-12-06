@@ -3,6 +3,7 @@ import streamlit as st
 import pickle
 import pandas as pd
 import numpy as np
+#streamlit run streamlit_app.py to run
 
 # Show title and description
 st.title("⚽ Soccer Analyzer")
@@ -11,6 +12,9 @@ st.write("Predict the outcome of soccer matches based on team stats and form.")
 # Load the trained model
 loaded_model = pickle.load(open('model/trained_model_52.sav', 'rb'))
 loaded_goal_model = pickle.load(open('model/trained_model_goal.sav','rb'))
+quantile_model = pickle.load(open('model/quantile_model.sav', 'rb'))
+quantile_model_away = pickle.load(open('model/quantile_model_away.sav', 'rb'))
+
 # Team options for the dropdown
 options = ['Burnley', 'Sheffield Utd', 'Everton', 'Brighton', 'Bournemouth', 'Newcastle',
            'Brentford', 'Chelsea', 'Manchester Utd', 'Arsenal', 'Luton', 'Crystal Palace',
@@ -42,10 +46,20 @@ def find_features(home_team, away_team, round, time):
     latest_match_away = df[df['away_team'] == away_team].sort_values(by='date', ascending=False).head(1)
     home_columns = latest_match_home[['home_team_code','home_goals_rolling_avg','home_conceded_goals_rolling_avg','home_shots_rolling_avg',
                                     'home_shots_on_goal_rolling_avg','home_target_ratio_rolling_avg'
-                                    ,'home_danger_ratio','home_shot_efficiency','home_conversion_rate_rolling_avg']]
+                                    ,'home_danger_ratio','home_shot_efficiency','home_conversion_rate_rolling_avg'
+                                    ,'home_target_to_goal_ratio_rolling_avg'
+                                    ,'home_shot_creation_ratio_rolling_avg'
+                                    ,'home_shots_off_goal_rolling_avg']]
     away_columns = latest_match_away[['away_team_code','away_goals_rolling_avg','away_conceded_goals_rolling_avg',
-                                    'away_shots_rolling_avg','away_shots_on_goal_rolling_avg','away_conversion_rate_rolling_avg','away_target_ratio_rolling_avg'
-                                    ,'away_danger_ratio','away_shot_efficiency']]
+                                    'away_shots_rolling_avg',
+                                    'away_shots_on_goal_rolling_avg',
+                                    'away_conversion_rate_rolling_avg',
+                                    'away_target_ratio_rolling_avg'
+                                    ,'away_danger_ratio',
+                                    'away_shot_efficiency'
+                                    ,'away_target_to_goal_ratio_rolling_avg'
+                                    ,'away_shot_creation_ratio_rolling_avg'
+                                    ,'away_shots_off_goal_rolling_avg']]
     features = pd.concat([home_columns.reset_index(drop=True), away_columns.reset_index(drop=True)], axis=1)
     features['round'] = round
     features['time'] = time
@@ -71,24 +85,40 @@ feature_columns = ['round', 'time', 'home_team_code', 'away_team_code',
        'away_target_ratio_rolling_avg',
        'home_danger_ratio','home_shot_efficiency','away_danger_ratio','away_shot_efficiency']
 
-goal_features_home = ['home_shots_rolling_avg','home_shots_on_goal_rolling_avg', 
-
-                    'home_target_ratio_rolling_avg',
-                    'home_conversion_rate_rolling_avg',
-                    'home_target_ratio_rolling_avg',
-                    'home_shots_on_goal_rolling_avg']
-goal_features_away = ['away_shots_rolling_avg','away_shots_on_goal_rolling_avg',
-                      
-                    'away_target_ratio_rolling_avg',
-                    'away_conversion_rate_rolling_avg',
-                    'away_target_ratio_rolling_avg',
-                    'away_shots_on_goal_rolling_avg']
+goal_features_home = ['home_shots_rolling_avg',
+                      'home_shots_on_goal_rolling_avg', 
+                      'home_target_to_goal_ratio_rolling_avg', 
+                      'home_conversion_rate_rolling_avg',
+                      'home_shot_creation_ratio_rolling_avg', 
+                      'home_shots_off_goal_rolling_avg']
+goal_features_away = ['away_shots_rolling_avg',
+                      'away_shots_on_goal_rolling_avg', 
+                      'away_target_to_goal_ratio_rolling_avg', 
+                      'away_conversion_rate_rolling_avg',
+                      'away_shot_creation_ratio_rolling_avg', 
+                      'away_shots_off_goal_rolling_avg']
 features = find_features(team1,team2,round,time)
 input_data = features[feature_columns]
 input_data_goals_home = features[goal_features_home]
 input_data_goals_away = features[goal_features_away]
+
 # Reshape the input data into the required format for the model
-#input_data = np.array(input_data).reshape(1, -1)
+input_data_goals_home = np.array(input_data_goals_home).reshape(1, -1)
+input_data_goals_away = np.array(input_data_goals_away).reshape(1, -1)
+#displaying to doublecheck
+#st.write(input_data)
+#st.write(input_data_goals_home)
+#st.write(input_data_goals_away)
+def predict_goal_range(model, input_data):
+    try:
+        y_pred = model.predict(input_data, quantiles=[0.16, 0.84])
+        predicted_left_goals = int(np.floor(y_pred[0, 0]))
+        predicted_high_goals = int(np.ceil(y_pred[0, 1]))
+        return predicted_left_goals, predicted_high_goals
+    except Exception as e:
+        st.error(f"An error occurred during prediction: {str(e)}")
+        return None, None
+
 
 # Use the model to make predictions
 if st.button("Predict Match Win"):
@@ -106,24 +136,15 @@ if st.button("Predict Match Win"):
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
 
-if st.button("Predict goals scored for Home Team"):
-    try:
-        prediction = loaded_goal_model.predict(input_data_goals_home)
-        #st.write(input_data)
-        #st.write(prediction)
-        # Display prediction result     1 win 2 away win, 0 draw
-        st.write(prediction)
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+if st.button("Predict Goal Range for Home Team"):
+    left_goals, high_goals = predict_goal_range(quantile_model, input_data_goals_home)
+    if left_goals is not None and high_goals is not None:
+        st.write(f"The home team will score {left_goals} (predicted left goals) - {high_goals} (predicted high goals) goals.")
 
-if st.button("Predict goals scored for Away Team"):
-    try:
-        prediction = loaded_goal_model.predict(input_data_goals_away)
-        #st.write(input_data)
-        #st.write(prediction)
-        # Display prediction result     1 win 2 away win, 0 draw
-        st.write(prediction)
-    except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+# New button for predicting goal range for Away Team
+if st.button("Predict Goal Range for Away Team"):
+    left_goals, high_goals = predict_goal_range(quantile_model_away, input_data_goals_away)
+    if left_goals is not None and high_goals is not None:
+        st.write(f"The away team will score {left_goals} (predicted left goals) - {high_goals} (predicted high goals) goals.")
 
 #away team not done yet
