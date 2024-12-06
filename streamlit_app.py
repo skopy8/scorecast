@@ -103,8 +103,8 @@ input_data_goals_home = features[goal_features_home]
 input_data_goals_away = features[goal_features_away]
 
 # Reshape the input data into the required format for the model
-input_data_goals_home = np.array(input_data_goals_home).reshape(1, -1)
-input_data_goals_away = np.array(input_data_goals_away).reshape(1, -1)
+#input_data_goals_home = np.array(input_data_goals_home).reshape(1, -1)
+#input_data_goals_away = np.array(input_data_goals_away).reshape(1, -1)
 #displaying to doublecheck
 #st.write(input_data)
 #st.write(input_data_goals_home)
